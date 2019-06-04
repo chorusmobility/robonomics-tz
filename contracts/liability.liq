@@ -1,52 +1,76 @@
 (* Type definitions *)
 
 type order = { 
-  model     : bytes;
-  objective : bytes;
-  cost      : nat;
+  order_model     : bytes;
+  order_objective : bytes;
+  order_cost      : nat;
 }
 
 type message = {
-  lot       : order;
-  sender    : key;
-  signature : signature;
+  message_order     : order;
+  message_sender    : key;
+  message_signature : signature;
+}
+
+type report = {
+  report_ix        : nat;
+  report_data      : bytes;
+  report_sender    : key;
+  report_signature : signature;
 }
 
 type liability = {
-  params   : order;
-  promisee : key_hash;
-  promisor : key_hash;
-  result   : bytes option;
+  liability_params   : order;
+  liability_promisee : key_hash;
+  liability_promisor : key_hash;
+  liability_report   : bytes option;
 }
 
 type storage = liability list
 
-(* Functions *)
+(* Functions *) 
 
-let encode_order o =
-  Bytes.concat [ o.model; o.objective; Bytes.pack o.cost]
+let check_sender hash sender signature =
+  if not (Crypto.check sender signature hash) then
+    failwith "Wrong message signature"
+  else
+    Crypto.hash_key sender 
 
 let hash_order o = Crypto.sha256 (
     Bytes.concat [
-      Crypto.sha256 o.model;
-      Crypto.sha256 o.objective;
-      Crypto.sha256 (Bytes.pack o.cost);
+      Crypto.sha256 o.order_model;
+      Crypto.sha256 o.order_objective;
+      Crypto.sha256 (Bytes.pack o.order_cost);
     ]
   )
 
-let check_sender m =
-  let encoded = encode_order m.lot in
-  if not (Crypto.check m.sender m.signature encoded) then
-    failwith "Wrong message signature"
-  else
-    Crypto.hash_key m.sender 
+let hash_report r = Crypto.sha256 (
+    Bytes.concat [
+      Crypto.sha256 (Bytes.pack r.report_ix);
+      Crypto.sha256 r.report_data;
+    ]
+  ) 
+      
+let check_order_sender m =
+  check_sender (hash_order m.message_order) m.message_sender m.message_signature
 
-(* Main *)
+let check_report_sender m =
+  check_sender (hash_report m) m.report_sender m.report_signature
 
-let%entry main ((demand : message), (offer : message)) storage =
-  if hash_order demand.lot <> hash_order offer.lot then 
+(* Entries *)
+
+let%entry create ((demand : message), (offer : message)) storage =
+  if hash_order demand.message_order <> hash_order offer.message_order then 
     failwith "Demand/Offer mismatch"
   else
-    let (promisee, promisor) = (check_sender demand, check_sender offer) in
-    let liability = { params = demand.lot; promisee; promisor; result = None; } in
-    ([], liability :: storage)
+    let (promisee, promisor) = (check_order_sender demand, check_order_sender offer) in
+    let liability = {
+      liability_params = demand.message_order;
+      liability_promisee = promisee;
+      liability_promisor = promisor;
+      liability_report = None;
+    } in [], liability :: storage 
+    
+let%entry finalize msg storage =
+  let pormisor = check_report_sender msg in
+  [], storage
