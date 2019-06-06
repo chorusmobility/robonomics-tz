@@ -1,79 +1,76 @@
-type order = {
+type order = { 
   order_model     : bytes;
   order_objective : bytes;
   order_cost      : nat;
 }
 
-type message = {
-  message_order     : order;
-  message_sender    : key;
-  message_signature : signature;
-}
-
 type report = {
   report_ix        : nat;
   report_data      : bytes;
-  report_sender    : key;
-  report_signature : signature;
 }
 
 type liability = {
   liability_params   : order;
-  liability_promisee : key_hash;
-  liability_promisor : key_hash;
+  liability_promisee : address;
+  liability_promisor : address;
   liability_report   : bytes option;
 }
 
-type storage = (nat, liability) map
+type storage = {
+  asks  : (bytes, (order * address)) map;
+  bids  : (bytes, (order * address)) map;
+  deals : (nat, liability) map;
+}
 
-let check_sender hash sender signature =
-  if not (Crypto.check sender signature hash) then
-    failwith "Wrong message signature"
-  else
-    Crypto.hash_key sender
-
-let hash_order o = Crypto.sha256 (
+let hash_order o = Crypto.blake2b (
     Bytes.concat [
-      Crypto.sha256 o.order_model;
-      Crypto.sha256 o.order_objective;
-      Crypto.sha256 (Bytes.pack o.order_cost);
+      Crypto.blake2b o.order_model;
+      Crypto.blake2b o.order_objective;
+      Crypto.blake2b (Bytes.pack o.order_cost);
     ]
   )
+    
+let new_liability order promisee promisor = {
+  liability_params   = order;
+  liability_promisee = promisee;
+  liability_promisor = promisor;
+  liability_report   = None;
+}
 
-let hash_report r = Crypto.sha256 (
-    Bytes.concat [
-      Crypto.sha256 (Bytes.pack r.report_ix);
-      Crypto.sha256 r.report_data;
-    ]
-  ) 
+let%init storage = {
+  asks = Map;
+  bids = Map;
+  deals = Map;
+}
+  
+let%entry demand (order : order) storage =
+  let demand_hash = hash_order order in
+  match Map.find demand_hash storage.bids with
+  | None -> 
+      [], storage.asks <- Map.add demand_hash (order, Current.sender ()) storage.asks
+  | Some (_, promisor) -> 
+      let liability = new_liability order (Current.sender ()) promisor in
+      let storage = storage.deals <- Map.add (Map.size storage.deals) liability storage.deals in
+      let storage = storage.bids <- Map.remove demand_hash storage.bids in
+      [], storage
+      
+let%entry offer (order : order) storage =
+  let offer_hash = hash_order order in
+  match Map.find offer_hash storage.asks with
+  | None -> 
+      [], storage.bids <- Map.add offer_hash (order, Current.sender ()) storage.bids
+  | Some (_, promisee) -> 
+      let liability = new_liability order (Current.sender ()) promisee in
+      let storage = storage.deals <- Map.add (Map.size storage.deals) liability storage.deals in
+      let storage = storage.asks <- Map.remove offer_hash storage.asks in
+      [], storage
 
-let check_order_sender m =
-  check_sender (hash_order m.message_order) m.message_sender m.message_signature
-
-let check_report_sender m =
-  check_sender (hash_report m) m.report_sender m.report_signature 
-
-let%init storage = Map
-
-let%entry create ((demand : message), (offer : message)) storage =
-  if hash_order demand.message_order <> hash_order offer.message_order then
-    failwith "Demand/Offer mismatch"
-  else
-    let (promisee, promisor) = (check_order_sender demand, check_order_sender offer) in
-    let liability = {
-      liability_params = demand.message_order;
-      liability_promisee = promisee;
-      liability_promisor = promisor;
-      liability_report = None;
-    } in [], Map.add (Map.size storage) liability storage
-
-let%entry finalize msg storage =
-  let promisor = check_report_sender msg in
-  match Map.find msg.report_ix storage with
+let%entry finalize report storage =
+  match Map.find report.report_ix storage.deals with
   | None -> failwith "Wrong liability ix"
   | Some l ->
-      if promisor <> l.liability_promisor then
-        failwith "Wrong report signer"
+      if l.liability_promisor <> Current.sender () then
+        failwith "Wrong report sender"
       else
-        let l = l.liability_report <- Some msg.report_data in
-        [], Map.update msg.report_ix (Some l) storage
+        let l = l.liability_report <- Some report.report_data in
+        [], storage.deals <- Map.update report.report_ix (Some l) storage.deals

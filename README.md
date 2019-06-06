@@ -1,4 +1,4 @@
 Robonomics on Tezos
 ===================
 
-* [Liability Factory](https://alphanet.tzscan.io/KT1LiLBc6ZX1FRthdKhHJji9SFV4VCt4gbQW)
+* Liability Factory: [KT1EDq7BYTReDeXiW6iLFh8Dfap9HDPDDM3w](https://alphanet.tzscan.io/KT1EDq7BYTReDeXiW6iLFh8Dfap9HDPDDM3w)
