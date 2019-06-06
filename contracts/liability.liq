@@ -22,6 +22,7 @@ type storage = {
   deals : (nat, liability) map;
 }
 
+
 let hash_order o = Crypto.blake2b (
     Bytes.concat [
       Crypto.blake2b o.order_model;
@@ -67,10 +68,13 @@ let%entry offer (order : order) storage =
 
 let%entry finalize report storage =
   match Map.find report.report_ix storage.deals with
-  | None -> failwith "Wrong liability ix"
+  | None -> failwith "Wrong liability index"
   | Some l ->
-      if l.liability_promisor <> Current.sender () then
-        failwith "Wrong report sender"
-      else
-        let l = l.liability_report <- Some report.report_data in
-        [], storage.deals <- Map.update report.report_ix (Some l) storage.deals
+      match l.liability_report with
+      | None -> failwith "Liability already finalized"
+      | _ ->
+          if l.liability_promisor <> Current.sender () then
+            failwith "Wrong report sender"
+          else
+            let l = l.liability_report <- Some report.report_data in
+            [], storage.deals <- Map.update report.report_ix (Some l) storage.deals
