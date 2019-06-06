@@ -9,4 +9,7 @@
     <param name="factory_address" value="$(arg factory_address)" />
   </node>
 
+  <!-- Turtle simulator -->
+  <node pkg="turtlesim" type="turtlesim_node" name="tezos_turtle" output="screen" />
+
 </launch>

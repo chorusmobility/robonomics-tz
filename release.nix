@@ -6,5 +6,6 @@ let
   pkgs = import nixpkgs { inherit system; };
 
 in rec {
-  package = pkgs.callPackage ./default.nix { };
+  ros_tutorials = pkgs.callPackage ./ros_tutorials.nix { };
+  package = pkgs.callPackage ./default.nix { inherit ros_tutorials; };
 }

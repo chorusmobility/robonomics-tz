@@ -1,9 +1,7 @@
 { stdenv
-, ros_comm
 , mkRosPackage
+, ros_tutorials
 , python3Packages
-, python3
-, libsodium
 }:
 
 mkRosPackage rec {
@@ -14,7 +12,7 @@ mkRosPackage rec {
   src = ./.;
 
   propagatedBuildInputs = with python3Packages;
-  [ ros_comm secp256k1
+  [ ros_tutorials secp256k1
     simplejson pysodium fastecdsa pyblake2 base58
     requests pendulum ply tqdm ];
 
