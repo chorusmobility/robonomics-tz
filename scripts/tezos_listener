@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from std_msgs.msg import String
+from pytezos.rpc import alphanet
+import rospy
+
+def fetch(factory_address):
+    return list(alphanet.context.contracts[factory_address].decode_storage()['deals'].values())
+
+def update(instances, factory_address):
+    new_instances = fetch(factory_address)
+    return (new_instances, new_instances[len(instances):])
+
+if __name__ == '__main__':
+    rospy.init_node('tezos_listener')
+    my_address = rospy.get_param('~robot_address')
+    factory_address = rospy.get_param('~factory_address')
+
+    instances = fetch(factory_address)
+    rospy.loginfo('Initial liability instances: %s', instances)
+
+    publisher = rospy.Publisher('launch', String, queue_size=10)
+
+    while not rospy.is_shutdown():
+        instances, news = update(instances, factory_address)
+        for l in news: 
+            rospy.loginfo('New liability: %s', l)
+            if l['liability_promisor'] == my_address:
+                rospy.loginfo('My liability %s, launch...', l)
+                publisher.publish(String('Launch robot!'))
+        rospy.sleep(5.)
