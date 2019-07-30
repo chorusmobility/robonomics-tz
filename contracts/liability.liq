@@ -22,7 +22,6 @@ type storage = {
   deals : (nat, liability) map;
 }
 
-
 let hash_order o = Crypto.blake2b (
     Bytes.concat [
       Crypto.blake2b o.order_model;
@@ -61,7 +60,7 @@ let%entry offer (order : order) storage =
   | None -> 
       [], storage.bids <- Map.add offer_hash (order, Current.sender ()) storage.bids
   | Some (_, promisee) -> 
-      let liability = new_liability order (Current.sender ()) promisee in
+      let liability = new_liability order promisee (Current.sender ()) in
       let storage = storage.deals <- Map.add (Map.size storage.deals) liability storage.deals in
       let storage = storage.asks <- Map.remove offer_hash storage.asks in
       [], storage
