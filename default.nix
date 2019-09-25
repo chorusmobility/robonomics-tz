@@ -1,4 +1,5 @@
 { stdenv
+, mavros
 , mkRosPackage
 , ros_tutorials
 , python3Packages
@@ -12,9 +13,9 @@ mkRosPackage rec {
   src = ./.;
 
   propagatedBuildInputs = with python3Packages;
-  [ ros_tutorials secp256k1
+  [ ros_tutorials mavros
     simplejson pysodium fastecdsa pyblake2 base58
-    requests pendulum ply tqdm ];
+    secp256k1 requests pendulum ply tqdm ];
 
   meta = with stdenv.lib; {
     description = "Robonomics on Tezos";
