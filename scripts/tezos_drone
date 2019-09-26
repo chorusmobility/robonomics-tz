@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from std_msgs.msg import String
+import rospy
+
+if __name__ == '__main__':
+    rospy.init_node('tezos_turtle')
+
+    def liability(msg):
+        rospy.loginfo('My liability %s, launch drone...', msg.data)
+        #
+
+    rospy.Subscriber('/liability/incoming', String, liability)
+    rospy.spin()

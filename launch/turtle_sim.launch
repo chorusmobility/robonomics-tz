@@ -1,0 +1,12 @@
+<launch>
+
+  <!-- Tezos listener -->
+  <include file="$(find robonomics_tz)/launch/listener.launch" />
+
+  <!-- Turtle simulator -->
+  <node pkg="turtlesim" type="turtlesim_node" name="tezos_turtle_sim" output="screen" />
+
+  <!-- Turtle worker script -->
+  <node pkg="robonomics_tz" type="tezos_turtle" name="tezos_turtle" output="screen" />
+
+</launch>

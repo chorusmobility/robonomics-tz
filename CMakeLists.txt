@@ -183,6 +183,8 @@ catkin_package()
 catkin_install_python(
     PROGRAMS
         scripts/tezos_listener
+        scripts/tezos_turtle
+        scripts/tezos_drone
     DESTINATION
         ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
@@ -190,6 +192,8 @@ catkin_install_python(
 install(
     FILES
         launch/listener.launch
+        launch/turtle_sim.launch
+        launch/solo_drone.launch
     DESTINATION
         ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
 )

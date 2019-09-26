@@ -1,6 +1,6 @@
 <launch>
 
-  <arg name="robot_address" default="tz1Q6uVtEEWYcGUuFb2N7Tu6bDaauNFfkhCH" />
+  <arg name="robot_address" default="tz1X55dLMTVKA1knjV15zNiQ3cJoJqrYKkRM" />
   <arg name="factory_address" default="KT1KspVr8U7QL7EyLYqTf5AomnQB6a9jZ1hs" />
 
   <!-- Simple Tezos blockchain liability contract listener -->
@@ -8,8 +8,5 @@
     <param name="robot_address" value="$(arg robot_address)" />
     <param name="factory_address" value="$(arg factory_address)" />
   </node>
-
-  <!-- Turtle simulator -->
-  <node pkg="turtlesim" type="turtlesim_node" name="tezos_turtle" output="screen" />
 
 </launch>

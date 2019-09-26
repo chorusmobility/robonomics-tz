@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+from geometry_msgs.msg import Twist 
+from std_msgs.msg import String
+import rospy
+
+if __name__ == '__main__':
+    rospy.init_node('tezos_turtle')
+
+    publisher = rospy.Publisher('/turtle1/cmd_vel', Twist, queue_size=10)
+    command = Twist()
+    command.linear.x = 5.
+    command.angular.z = 5.
+
+    def liability(msg):
+        rospy.loginfo('My liability %s, launch turtle...', msg.data)
+        publisher.publish(command)
+
+    rospy.Subscriber('/liability/incoming', String, liability)
+    rospy.spin()
