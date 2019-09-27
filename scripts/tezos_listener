@@ -3,6 +3,7 @@
 
 from std_msgs.msg import String
 from pytezos.rpc import alphanet
+from json import dumps
 import rospy
 
 def fetch(factory_address):
@@ -20,14 +21,13 @@ if __name__ == '__main__':
     instances = fetch(factory_address)
     rospy.loginfo('Initial liability instances: %s', instances)
 
+    msg = String()
     publisher = rospy.Publisher('/liability/incoming', String, queue_size=10)
     while not rospy.is_shutdown():
         instances, news = update(instances, factory_address)
         for l in news: 
             rospy.loginfo('New liability: %s', l)
             if l['liability_promisor'] == my_address:
-                rospy.loginfo('My liability %s, launch...', l)
-                msg = String()
-                msg.data = str(l)
+                msg.data = dumps(l)
                 publisher.publish(msg)
         rospy.sleep(5.)
