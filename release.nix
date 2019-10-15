@@ -1,11 +1,7 @@
-{ nixpkgs ? import ./fetchNixpkgs.nix { }
-, system ? builtins.currentSystem
+{ pkgs ? import (builtins.fetchTarball https://github.com/airalab/airapkgs/archive/nixos-unstable.tar.gz) { }
 }:
 
-let
-  pkgs = import nixpkgs { inherit system; };
-
-in rec {
+rec {
   ros_tutorials = pkgs.callPackage ./ros_tutorials.nix { };
   package = pkgs.callPackage ./default.nix { inherit ros_tutorials; };
 }
