@@ -1,131 +1,128 @@
-# -*- coding: utf-8 -*-
-
 import requests
-from functools import lru_cache
+from json import JSONDecodeError
 from hashlib import sha1
-
-public_nodes = {
-    'mainnet': ['https://rpc.tezrpc.me/', 'https://mainnet-node.tzscan.io/'],
-    'zeronet': ['https://zeronet-node.tzscan.io/'],
-    'alphanet': ['https://alphanet-node.tzscan.io/']
-}
+from urllib.parse import urlencode
+from pprint import pformat
 
 
 def urljoin(*args):
     return "/".join(map(lambda x: str(x).strip('/'), args))
 
 
-class RpcError(ValueError):
+def gen_error_variants(error_id) -> list:
+    chunks = error_id.split('.')
+    variants = [error_id]
+    if len(chunks) > 1:
+        variants.append(chunks[-2])
+        if len(chunks) > 2:
+            variants.append('.'.join(chunks[2:]))
+    return variants
 
-    def __init__(self, res: requests.Response):
-        super(RpcError, self).__init__(res.text)
-        self.res = res
+
+class RpcError(Exception):
+    __handlers__ = {}
+
+    @classmethod
+    def __init_subclass__(cls, error_id=None, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if isinstance(error_id, list):
+            for eid in error_id:
+                cls.__handlers__[eid] = cls
+        else:
+            assert error_id is not None
+            cls.__handlers__[error_id] = cls
+
+    @classmethod
+    def from_errors(cls, errors: list):
+        assert errors
+        error = errors[-1]
+        for key in gen_error_variants(error['id']):
+            if key in cls.__handlers__:
+                handler = cls.__handlers__[key]
+                return handler(error)
+        return RpcError(error)
+
+    @classmethod
+    def from_response(cls, res: requests.Response):
+        if res.headers.get('content-type') == 'application/json':
+            errors = res.json()
+            assert isinstance(errors, list)
+            return cls.from_errors(errors)
+        else:
+            return RpcError(res.text)
 
     def __str__(self):
-        return f'{self.res.request.method} {self.res.request.url} <{self.res.status_code}>\n{self.res.text}'
+        return pformat(self.args)
 
 
-class Node:
+class RpcNode:
 
-    def __init__(self, uri=public_nodes['mainnet'][0]):
-        self._uri = uri
+    def __init__(self, uri, network=''):
+        self.uri = uri
+        self.network = network
         self._cache = dict()
         self._session = requests.Session()
 
     def __repr__(self):
-        return f'{self._uri}'
+        res = [
+            super(RpcNode, self).__repr__(),
+            '\nNode address',
+            f'{self.uri} ({self.network})',
+            '\nCached urls',
+            *list(self._cache.keys())
+        ]
+        return '\n'.join(res)
 
-    def _request(self, method, path, **kwargs):
+    def request(self, method, path, **kwargs) -> requests.Response:
         res = self._session.request(
             method=method,
-            url=urljoin(self._uri, path),
-            headers={'content-type': 'application/json'},
+            url=urljoin(self.uri, path),
+            headers={
+                'content-type': 'application/json',
+                'user-agent': 'PyTezos'
+            },
             **kwargs
         )
         if res.status_code != 200:
-            raise RpcError(res)
-
-        return res.json()
-
-    def get(self, path, params=None, cache=False):
-        if cache and path in self._cache:
-            return self._cache[path]
-
-        res = self._request('GET', path, params=params)
-        if cache:
-            self._cache[path] = res
+            raise RpcError.from_response(res) from None
 
         return res
 
-    def post(self, path, json=None, cache=False):
-        key = None
-        if cache:
-            key = sha1((path + str(json)).encode()).hexdigest()
-            if key in self._cache:
-                return self._cache[key]
+    def get(self, path, params=None, caching=False, cache_key=None, timeout=None):
+        if caching:
+            if not cache_key:
+                cache_key = path
+                if params:
+                    cache_key += f'?{urlencode(params)}'
+            if cache_key in self._cache:
+                return self._cache[cache_key]
 
-        res = self._request('POST', path, json=json)
-        if cache:
-            self._cache[key] = res
+        res = self.request('GET', path, params=params, timeout=timeout).json()
+        if caching:
+            self._cache[cache_key] = res
 
         return res
 
+    def post(self, path, params=None, json=None, caching=False):
+        cache_key = None
+        if caching:
+            cache_key = sha1((path + str(json)).encode()).hexdigest()
+            if cache_key in self._cache:
+                return self._cache[cache_key]
 
-class RpcQuery:
+        response = self.request('POST', path, params=params, json=json)
+        try:
+            res = response.json()
+        except JSONDecodeError:
+            res = response.text
 
-    def __init__(self, path='', node=Node(), cache=False, child_class=None, properties=None, **kwargs):
-        self._node = node
-        self._path = path
-        self._cache = cache
-        self._child_class = child_class if child_class else RpcQuery
-        self._kwargs = kwargs
+        if caching:
+            self._cache[cache_key] = res
 
-        if isinstance(properties, dict):
-            self._properties = properties
-        elif isinstance(properties, list):
-            self._properties = {x: self._child_class for x in properties}
-        else:
-            self._properties = dict()
+        return res
 
-    def __repr__(self):
-        return self._path
+    def delete(self, path, params=None):
+        return self.request('DELETE', path, params=params).json()
 
-    def __dir__(self):
-        return sorted(list(super(RpcQuery, self).__dir__())
-                      + list(self._properties.keys()))
-
-    def __call__(self, *args, **kwargs):
-        return self._node.get(
-            path=self._path,
-            params=kwargs,
-            cache=self._cache
-        )
-
-    @lru_cache(maxsize=None)
-    def __getattr__(self, item):
-        if not item.startswith('_'):
-            child_class = self._properties.get(item, RpcQuery)
-            return child_class(
-                path=f'{self._path}/{item}',
-                node=self._node,
-                cache=self._cache,
-                **self._kwargs
-            )
-        raise AttributeError(item)
-
-    @lru_cache(maxsize=None)
-    def __getitem__(self, item):
-        return self._child_class(
-            path=f'{self._path}/{item}',
-            node=self._node,
-            cache=self._cache,
-            **self._kwargs
-        )
-
-    def get(self, key, default=None):
-        data = self()
-        if key in data:
-            return data[key]
-        if default is not None:
-            return default
-        raise KeyError(f'{key} is missing.')
+    def put(self, path, params=None):
+        return self.request('PUT', path, params=params).json()
