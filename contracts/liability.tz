@@ -1,0 +1,267 @@
+parameter
+  (or :_entries
+     (pair :order %demand
+        (bytes %order_model)
+        (pair (bytes %order_objective) (nat %order_cost)))
+     (or (pair :order %offer
+            (bytes %order_model)
+            (pair (bytes %order_objective) (nat %order_cost)))
+         (pair :report %finalize (nat %report_ix) (bytes %report_data))));
+storage
+  (pair :storage
+     (map %asks
+        bytes
+        (pair (pair :order (bytes %order_model) (pair (bytes %order_objective) (nat %order_cost)))
+              address))
+     (pair (map %bids
+              bytes
+              (pair (pair :order (bytes %order_model) (pair (bytes %order_objective) (nat %order_cost)))
+                    address))
+           (map %deals
+              nat
+              (pair :liability
+                 (pair :order %liability_params
+                    (bytes %order_model)
+                    (pair (bytes %order_objective) (nat %order_cost)))
+                 (pair (address %liability_promisee)
+                       (pair (address %liability_promisor) (option %liability_report bytes)))))));
+code { DUP ;
+       DIP { CDR @storage_slash_1 } ;
+       CAR @parameter_slash_2 ;
+       LAMBDA @hash_order
+         (pair :order (bytes %order_model) (pair (bytes %order_objective) (nat %order_cost)))
+         bytes
+         { RENAME @o_slash_3 ;
+           NIL bytes ;
+           DUUP @o ;
+           CDDR %order_cost ;
+           PACK ;
+           BLAKE2B ;
+           CONS ;
+           DUUP @o ;
+           CDAR %order_objective ;
+           BLAKE2B ;
+           CONS ;
+           SWAP ;
+           CAR %order_model ;
+           BLAKE2B ;
+           CONS ;
+           CONCAT ;
+           BLAKE2B } ;
+       LAMBDA @new_liability
+         (pair (pair :order (bytes %order_model) (pair (bytes %order_objective) (nat %order_cost)))
+               (pair address address))
+         (pair :liability
+            (pair :order %liability_params
+               (bytes %order_model)
+               (pair (bytes %order_objective) (nat %order_cost)))
+            (pair (address %liability_promisee)
+                  (pair (address %liability_promisor) (option %liability_report bytes))))
+         { RENAME @order_promisee_promisor_slash_5 ;
+           NONE bytes ;
+           DUUP @order_promisee_promisor ;
+           CDDR @promisor ;
+           PAIR %liability_promisor %liability_report ;
+           DUUP @order_promisee_promisor ;
+           CDAR @promisee ;
+           PAIR %liability_promisee ;
+           SWAP ;
+           CAR @order ;
+           PAIR %liability_params } ;
+       DUUUP @parameter ;
+       IF_LEFT
+         { RENAME @order_slash_10 ;
+           DUUUUUP @storage ;
+           DUUUUP @hash_order ;
+           DUUUP @order ;
+           EXEC @demand_hash ;
+           DUUP @storage ;
+           CDAR %bids ;
+           DUUP @demand_hash ;
+           GET ;
+           IF_NONE
+             { DUUP @storage ;
+               CDR ;
+               DUUUP @storage ;
+               CAR %asks ;
+               SENDER ;
+               DUUUUUUP @order ;
+               PAIR ;
+               DUUUUP @demand_hash ;
+               DIP { SOME } ;
+               UPDATE ;
+               PAIR %asks ;
+               NIL operation ;
+               PAIR }
+             { DUUUP @storage ;
+               DUP ;
+               CAR %asks ;
+               SWAP ;
+               CDR ;
+               CAR %bids ;
+               DUUUUUP @storage ;
+               CDDR %deals ;
+               DUUUUUUUUP @new_liability ;
+               DUUUUUP ;
+               CDR @promisor ;
+               SENDER ;
+               PAIR ;
+               DUUUUUUUUUP @order ;
+               PAIR ;
+               EXEC @liability ;
+               DUUUUUUUP @storage ;
+               CDDR %deals ;
+               SIZE ;
+               DIP { SOME } ;
+               UPDATE ;
+               SWAP ;
+               PAIR %bids %deals ;
+               SWAP ;
+               PAIR @storage %asks ;
+               DUP @storage ;
+               DUP ;
+               CAR %asks ;
+               SWAP ;
+               CDR ;
+               CDR %deals ;
+               DUUUP @storage ;
+               CDAR %bids ;
+               DUUUUUUP @demand_hash ;
+               DIP { NONE (pair (pair :order (bytes %order_model) (pair (bytes %order_objective) (nat %order_cost)))
+                                address) } ;
+               DIIIIIP { DROP ; DROP } ;
+               UPDATE ;
+               PAIR %bids %deals ;
+               SWAP ;
+               PAIR @storage %asks ;
+               NIL operation ;
+               PAIR } ;
+           DIP { DROP ; DROP ; DROP } }
+         { IF_LEFT
+             { RENAME @order_slash_19 ;
+               DUUUUUP @storage ;
+               DUUUUP @hash_order ;
+               DUUUP @order ;
+               EXEC @offer_hash ;
+               DUUP @storage ;
+               CAR %asks ;
+               DUUP @offer_hash ;
+               GET ;
+               IF_NONE
+                 { DUUP @storage ;
+                   DUP ;
+                   CAR %asks ;
+                   SWAP ;
+                   CDR ;
+                   CDR %deals ;
+                   DUUUUP @storage ;
+                   CDAR %bids ;
+                   SENDER ;
+                   DUUUUUUUP @order ;
+                   PAIR ;
+                   DUUUUUP @offer_hash ;
+                   DIP { SOME } ;
+                   UPDATE ;
+                   PAIR %bids %deals ;
+                   SWAP ;
+                   PAIR %asks ;
+                   NIL operation ;
+                   PAIR }
+                 { DUUUP @storage ;
+                   DUP ;
+                   CAR %asks ;
+                   SWAP ;
+                   CDR ;
+                   CAR %bids ;
+                   DUUUUUP @storage ;
+                   CDDR %deals ;
+                   DUUUUUUUUP @new_liability ;
+                   SENDER ;
+                   DUUUUUUP ;
+                   CDR @promisee ;
+                   PAIR ;
+                   DUUUUUUUUUP @order ;
+                   PAIR ;
+                   EXEC @liability ;
+                   DUUUUUUUP @storage ;
+                   CDDR %deals ;
+                   SIZE ;
+                   DIP { SOME } ;
+                   UPDATE ;
+                   SWAP ;
+                   PAIR %bids %deals ;
+                   SWAP ;
+                   PAIR @storage %asks ;
+                   DUP @storage ;
+                   CDR ;
+                   DUUP @storage ;
+                   CAR %asks ;
+                   DUUUUUP @offer_hash ;
+                   DIP { NONE (pair (pair :order (bytes %order_model) (pair (bytes %order_objective) (nat %order_cost)))
+                                    address) } ;
+                   DIIIIP { DROP ; DROP } ;
+                   UPDATE ;
+                   PAIR @storage %asks ;
+                   NIL operation ;
+                   PAIR } ;
+               DIP { DROP ; DROP ; DROP } }
+             { RENAME @report_slash_28 ;
+               DUUUUUP @storage ;
+               DUP @storage ;
+               CDDR %deals ;
+               DUUUP @report ;
+               CAR %report_ix ;
+               GET ;
+               IF_NONE
+                 { PUSH string "Wrong liability index" ; FAILWITH }
+                 { DUP @l ;
+                   CDDDR %liability_report ;
+                   IF_NONE
+                     { PUSH string "Liability already finalized" ; FAILWITH }
+                     { SENDER ;
+                       DUUUP @l ;
+                       CDDAR %liability_promisor ;
+                       COMPARE ;
+                       NEQ ;
+                       IF { PUSH string "Wrong report sender" ; FAILWITH }
+                          { DUUUP @storage ;
+                            DUP ;
+                            CAR %asks ;
+                            SWAP ;
+                            CDR ;
+                            CAR %bids ;
+                            DUUUUUP @storage ;
+                            CDDR %deals ;
+                            DUUUUUP @l ;
+                            DUP ;
+                            CAR %liability_params ;
+                            SWAP ;
+                            CDR ;
+                            DUP ;
+                            CAR %liability_promisee ;
+                            SWAP ;
+                            CDR ;
+                            CAR %liability_promisor ;
+                            DUUUUUUUUUUP @report ;
+                            CDR %report_data ;
+                            SOME ;
+                            SWAP ;
+                            PAIR %liability_promisor %liability_report ;
+                            SWAP ;
+                            PAIR %liability_promisee ;
+                            SWAP ;
+                            PAIR @l %liability_params ;
+                            SOME ;
+                            DUUUUUUUUP @report ;
+                            CAR %report_ix ;
+                            UPDATE ;
+                            SWAP ;
+                            PAIR %bids %deals ;
+                            SWAP ;
+                            PAIR %asks ;
+                            NIL operation ;
+                            PAIR } ;
+                       DIP { DROP } } ;
+                   DIP { DROP } } ;
+               DIP { DROP ; DROP } } } ;
+       DIP { DROP ; DROP ; DROP ; DROP } };

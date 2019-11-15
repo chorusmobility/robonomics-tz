@@ -3,6 +3,7 @@
 , mkRosPackage
 , ros_tutorials
 , python3Packages
+, pkgs
 }:
 
 mkRosPackage rec {
@@ -15,7 +16,7 @@ mkRosPackage rec {
   propagatedBuildInputs = with python3Packages;
   [ ros_tutorials mavros
     simplejson pysodium fastecdsa pyblake2 base58
-    secp256k1 requests pendulum ply tqdm ];
+    secp256k1 requests pendulum ply tqdm loguru mnemonic pkgs.qt5.full ];
 
   meta = with stdenv.lib; {
     description = "Robonomics on Tezos";

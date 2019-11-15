@@ -1,13 +1,16 @@
-#!/usr/bin/env python4
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from std_msgs.msg import String
-from pytezos.rpc import mainnet
+#from pytezos.rpc import mainnet
+from pytezos import pytezos
 from json import dumps
 import rospy
 
+mainnet = pytezos.using("mainnet")
+
 def fetch(factory_address):
-    return list(mainnet.context.contracts[factory_address].decode_storage()['deals'].values())
+    return list(mainnet.contract(factory_address).storage()['deals'].values())
 
 def update(instances, factory_address):
     new_instances = fetch(factory_address)

@@ -1,7 +1,7 @@
 <launch>
 
-  <arg name="robot_address" default="tz1X55dLMTVKA1knjV15zNiQ3cJoJqrYKkRM" />
-  <arg name="factory_address" default="KT1KspVr8U7QL7EyLYqTf5AomnQB6a9jZ1hs" />
+  <arg name="robot_address" default="tz1i2DjzrA5rtzSWeUHpoevnTZuv3WC2hvMK" />
+  <arg name="factory_address" default="KT1CkArDT3YjY6GJFuxjhqeY6pBkyQZ2MVA2" />
 
   <!-- Simple Tezos blockchain liability contract listener -->
   <node pkg="robonomics_tz" type="tezos_listener" name="tezos_listener" output="screen">
