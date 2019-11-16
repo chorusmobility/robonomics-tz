@@ -6,7 +6,17 @@ Robonomics network proof of concept for Tezos platform.
 Install and run
 ---------------
 
-    nix build -f release.nix
+Install Nix
+
+    curl https://nixos.org/nix/install | sh
+
+Be sure that user added to trusted users in /etc/nix/nix.conf
+
+    trusted-users = username
+
+Launch build process in repository core
+
+    nix build -f release.nix --option sandbox false
     source result/setup.bash
 
 Launch Turtle simulator
